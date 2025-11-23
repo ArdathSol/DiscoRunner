@@ -26,7 +26,7 @@ const Palettes = {
     DISCO: { playerHue: 0, sat: 80, light: 60, groundHue: 340, obstacleSat: 50, obstacleLight: 50 },
     COLORBLIND: { playerHue: 200, sat: 100, light: 50, groundHue: 40, obstacleSat: 100, obstacleLight: 50 }
 };
-let currentPalette = Palettes.DISCO;
+let currentPalette = Palettes.COLORBLIND; // Startet im Farbblinden Modus, um Fehler auszuschließen
 let hue = currentPalette.playerHue;
 
 // Spielerobjekt & Skin-Logik
@@ -95,7 +95,7 @@ function startGame() {
     overlay.style.display = 'none';
     score = 0; scoreElement.textContent = score;
     obstacles.length = 0; powerUps.length = 0; particles.length = 0;
-    player.y = canvas.height - player.height; // Wichtig: Beim Start auf neue Höhe setzen
+    player.y = canvas.height - player.height;
     currentObstacleSpeed = 5; frameCount = 0;
     player.powerUpTimer = 0; player.jumpStrength = -12; gameOverTimer = 0;
     checkSkins();
@@ -111,7 +111,6 @@ function checkSkins() {
 
 function getHSLColor(h, s, l) { return `hsl(${h}, ${s}%, ${l}%)`; }
 
-// Klassen (Obstacle, PowerUp, Particle) hier einfügen...
 function Obstacle(x, y, width, height, color, type = 'ground') {
     this.x = x; this.y = y; this.width = width; this.height = height; this.color = color; this.type = type;
     this.update = function() { this.x -= currentObstacleSpeed; };
@@ -150,7 +149,6 @@ function Particle(x, y, color, velocityX, velocityY) {
         ctx.globalAlpha = 1;
     };
 }
-// ... (Ende Klassen) ...
 
 // Update-Funktion (Spiel-Logik)
 function update() {
@@ -164,7 +162,6 @@ function update() {
     if (player.y > canvas.height - player.height) { player.y = canvas.height - player.height; player.velocityY = 0; player.grounded = true; }
     if (player.powerUpTimer > 0) { player.powerUpTimer--; if (player.powerUpTimer === 0) { player.jumpStrength = -12; } }
 
-    // Hindernisse spawnen (Koordinaten relativ zur Canvas-Höhe)
     if (gameState === 'PLAYING' && frameCount % Math.floor(Math.random() * 90 + 70) === 0) {
         if(Math.random() < 0.85) { obstacles.push(new Obstacle(canvas.width, canvas.height - 40, 20, 40, getHSLColor(currentPalette.groundHue, currentPalette.obstacleSat, currentPalette.obstacleLight), 'ground')); } 
         else { obstacles.push(new Obstacle(canvas.width, canvas.height - 100, 40, 20, getHSLColor(currentPalette.groundHue + 60, currentPalette.obstacleSat, currentPalette.obstacleLight), 'air')); }
@@ -209,12 +206,10 @@ function render() {
     ctx.fillStyle = gradient; ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.shadowBlur = 0;
 
-    // Bodenlinie (Koordinaten relativ zur Canvas-Höhe)
     ctx.strokeStyle = getHSLColor(currentPalette.groundHue, currentPalette.sat, currentPalette.lightness);
     ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, canvas.height); ctx.lineTo(canvas.width, canvas.height); ctx.stroke();
 
-    // Spieler zeichnen
-    if(gameOverTimer < 110 || gameState === 'PLAYING') { // Kein START state mehr
+    if(gameOverTimer < 110 || gameState === 'PLAYING') {
         ctx.strokeStyle = player.color; ctx.lineWidth = 3; ctx.shadowColor = player.color; ctx.shadowBlur = 15;
         ctx.beginPath(); ctx.arc(player.x + player.width / 2, player.y + 10, 10, 0, Math.PI * 2); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(player.x + player.width / 2, player.y + 20); ctx.lineTo(player.x + player.width / 2, player.y + 40); ctx.stroke();
@@ -239,7 +234,6 @@ function render() {
         ctx.fillText('K.O.!', canvas.width / 2, canvas.height / 2);
     }
     
-    // Overlay nach Bullet Time anzeigen
     if(gameState === 'GAME_OVER' && gameOverTimer <= 0) {
          overlay.style.display = 'flex';
          document.getElementById('overlayMessage').innerHTML = `Du hast ${score} Punkte erreicht!<br>Highscore: ${highScore} Punkte.<br>Drücke LEERTASTE oder klicke auf Neustart.`;
@@ -251,9 +245,7 @@ function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     // Spielerposition an den neuen Boden anpassen, ohne Logikfehler
-    if(gameState !== 'PLAYING') {
-         player.y = canvas.height - player.height;
-    }
+    player.y = canvas.height - player.height;
 }
 
 window.addEventListener('resize', resizeCanvas);
