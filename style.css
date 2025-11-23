@@ -6,11 +6,11 @@ body {
     justify-content: center;
     align-items: center;
     height: 100vh;
-    width: 100vw; /* Sicherstellen, dass der Body 100% des Viewports einnimmt */
+    width: 100vw;
     background-color: #1a1a2e;
     color: white;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    overflow: hidden; /* Scrollbalken verhindern */
+    overflow: hidden;
 }
 
 #gameContainer {
@@ -21,8 +21,6 @@ body {
 }
 
 canvas {
-    /* Diese Maße werden jetzt dynamisch durch JavaScript gesetzt, 
-       die CSS Ränder dienen nur der Optik, wenn die Seite geladen wird */
     border: 3px solid #e94560;
     box-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
     display: block;
