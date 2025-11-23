@@ -16,7 +16,7 @@ const powerUps = [];
 const particles = [];
 let gameOverTimer = 0;
 let soundEnabled = true;
-let colorblindMode = false;
+let colorblindMode = false; // Initialzustand ist AUS
 
 // Farbpaletten
 const Palettes = {
@@ -35,7 +35,7 @@ let hue = currentPalette.playerHue;
 // Spielerobjekt & Skin-Logik
 const player = {
     x: 50,
-    y: 0, // Y wird in resizeCanvas gesetzt
+    y: 0,
     width: 20,
     height: 50,
     color: '#53d8fb',
@@ -49,11 +49,9 @@ const player = {
 function playSound(type) {
     if (!soundEnabled) return;
     try {
-        // Einfache Frequenz-Töne (Piepen) statt Audio-Dateien für Einfachheit
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
-
         oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
 
@@ -68,12 +66,10 @@ function playSound(type) {
                 oscillator.type = 'sawtooth'; oscillator.frequency.setValueAtTime(150, audioContext.currentTime); gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
                 break;
         }
-
         oscillator.start(audioContext.currentTime);
         gainNode.gain.expirestime = audioContext.currentTime + 0.2;
         gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.2);
         oscillator.stop(audioContext.currentTime + 0.2);
-
     } catch (e) {
         console.warn("Web Audio API not supported in this browser");
     }
@@ -89,10 +85,11 @@ toggleColorblindBtn.addEventListener('click', () => {
     colorblindMode = !colorblindMode;
     toggleColorblindBtn.textContent = `Farbblinden-Modus: ${colorblindMode ? 'AN' : 'AUS'}`;
     currentPalette = colorblindMode ? Palettes.COLORBLIND : Palettes.DISCO;
-    checkSkins(); // Skins müssen ggf. neue Farben haben, falls sie auf HSL basieren
-    // Standard-Skin Farbe aktualisieren, da sie nicht über data-color definiert ist
+    
+    // Standard-Skin Farbe basierend auf Modus aktualisieren
     document.getElementById('skin0').setAttribute('data-color', colorblindMode ? '#5da1b9' : '#53d8fb');
-    // Aktuellen Skin neu auswählen, um Farbe zu übernehmen
+    
+    // Aktuellen Skin neu auswählen, um Farbe und HSL-Rotationseffekt zu übernehmen
     document.querySelector('.skin-btn.active').click();
 });
 
@@ -119,7 +116,7 @@ document.addEventListener('keydown', function(event) {
         if ((event.code === 'Space' || event.code === 'ArrowUp') && player.grounded) {
             player.velocityY = player.jumpStrength;
             player.grounded = false;
-            playSound('jump'); // Sound beim Sprung
+            playSound('jump');
         }
     } else if (gameState === 'GAME_OVER' && gameOverTimer <= 0) {
         if (event.code === 'Space') {
@@ -161,7 +158,6 @@ function getHSLColor(h, s, l) {
     return `hsl(${h}, ${s}%, ${l}%)`;
 }
 
-// ... (Klassen Obstacle, PowerUp, Particle wie zuvor, update() methoden nutzen currentObstacleSpeed) ...
 
 function Obstacle(x, y, width, height, color, type = 'ground') {
     this.x = x; this.y = y; this.width = width; this.height = height; this.color = color; this.type = type;
@@ -246,7 +242,6 @@ function update() {
         }
     }
 
-    // ... (Kollisionslogik wie zuvor) ...
     for (let i = 0; i < obstacles.length; i++) {
         obstacles[i].update();
         if (gameState === 'PLAYING' && checkCollision(player, obstacles[i])) {
@@ -263,7 +258,7 @@ function update() {
             if (powerUps[i].type === 'highJump') {
                 player.jumpStrength = -18; player.powerUpTimer = 180;
                 createParticles(player.x + player.width / 2, player.y + player.height / 2, powerUps[i].color, 20);
-                playSound('powerup'); // Sound beim Einsammeln
+                playSound('powerup');
             }
             powerUps.splice(i, 1); i--;
         }
@@ -277,7 +272,7 @@ function update() {
     }
 }
 
-// ... (checkCollision, createParticles) ...
+
 function checkCollision(rect1, rect2) {
     return ( rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y );
 }
@@ -290,7 +285,6 @@ function createParticles(x, y, color, count) {
 
 function gameOverAction() {
     if(gameState === 'GAME_OVER') return;
-
     if (score > highScore) {
         highScore = score;
         localStorage.setItem('discoRunnerHighScore', highScore);
@@ -299,13 +293,12 @@ function gameOverAction() {
     gameState = 'GAME_OVER';
     gameOverTimer = 120;
     createParticles(player.x + player.width / 2, player.y + player.height / 2, player.color, 100);
-    playSound('gameover'); // Sound bei Game Over
+    playSound('gameover');
 }
 
 
 // Render-Funktion (Zeichnen)
 function render() {
-    // Disco Hintergrund
     const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
     gradient.addColorStop(0, getHSLColor(hue, currentPalette.sat, currentPalette.lightness * 0.25));
     gradient.addColorStop(1, getHSLColor(hue + 60, currentPalette.sat, currentPalette.lightness * 0.2));
@@ -313,7 +306,6 @@ function render() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.shadowBlur = 0;
 
-    // Bodenlinie
     ctx.strokeStyle = getHSLColor(currentPalette.groundHue, currentPalette.sat, currentPalette.lightness);
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -321,7 +313,6 @@ function render() {
     ctx.lineTo(canvas.width, canvas.height);
     ctx.stroke();
 
-    // Spieler zeichnen (STRICHMÄNNCHEN)
     if(gameOverTimer < 110 || gameState === 'PLAYING' || gameState === 'START') {
         ctx.strokeStyle = player.color;
         ctx.lineWidth = 3;
@@ -348,14 +339,10 @@ function render() {
         ctx.stroke();
     }
 
-    // Hindernisse zeichnen
     for (let i = 0; i < obstacles.length; i++) { obstacles[i].draw(); }
-    // Power-Ups zeichnen
     for (let i = 0; i < powerUps.length; i++) { powerUps[i].draw(); }
-    // Partikel zeichnen
     for (let i = 0; i < particles.length; i++) { particles[i].draw(); }
 
-    // Dramatischer Text während Bullet Time
     if (gameState === 'GAME_OVER' && gameOverTimer > 0) {
         ctx.shadowBlur = 20;
         ctx.shadowColor = getHSLColor(currentPalette.groundHue, currentPalette.sat, currentPalette.lightness);
@@ -365,7 +352,6 @@ function render() {
         ctx.fillText('K.O.!', canvas.width / 2, canvas.height / 2);
     }
     
-    // Overlay nach Bullet Time anzeigen
     if(gameState === 'GAME_OVER' && gameOverTimer <= 0) {
          overlay.style.display = 'flex';
          document.getElementById('overlayMessage').innerHTML = `Du hast ${score} Punkte erreicht!<br>Highscore: ${highScore} Punkte.<br>Drücke LEERTASTE oder klicke auf Neustart.`;
@@ -376,11 +362,10 @@ function render() {
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    // Spielerposition anpassen
     player.y = canvas.height - player.height;
-    // Overlay ebenfalls auf volle Größe bringen
-    overlay.style.width = window.innerWidth + 'px';
-    overlay.style.height = window.innerHeight + 'px';
+    // Overlay ebenfalls auf volle Größe bringen (CSS macht das schon, aber hier sicherheitshalber)
+    // overlay.style.width = window.innerWidth + 'px';
+    // overlay.style.height = window.innerHeight + 'px';
 }
 
 window.addEventListener('resize', resizeCanvas);
@@ -394,6 +379,6 @@ function gameLoop() {
 }
 
 // Spiel starten (Initialisierung)
-resizeCanvas(); // Einmalige Anpassung beim Start
+resizeCanvas();
 checkSkins();
 gameLoop();
