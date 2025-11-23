@@ -9,13 +9,18 @@
 <body>
     <div id="gameContainer">
         <div id="scoreBoard">Punkte: <span id="score">0</span></div>
-        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <canvas id="gameCanvas"></canvas>
         
         <!-- Overlay für Start und Game Over -->
         <div id="overlay">
             <h1 id="overlayTitle">Disco Runner</h1>
             <p id="overlayMessage">Drücke LEERTASTE oder Pfeil-Hoch zum Springen.</p>
             
+            <div id="options">
+                <button id="toggleSound">Ton: AN</button>
+                <button id="toggleColorblind">Farbblinden-Modus: AUS</button>
+            </div>
+
             <div id="skinSelection">
                 <h3>Skin Auswahl:</h3>
                 <button id="skin0" class="skin-btn active" data-color="#53d8fb" data-score="0">Blau</button>
