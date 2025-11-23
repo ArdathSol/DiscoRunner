@@ -11,10 +11,10 @@
         <div id="scoreBoard">Punkte: <span id="score">0</span></div>
         <canvas id="gameCanvas"></canvas>
         
-        <!-- Overlay für Start und Game Over -->
+        <!-- Overlay für Game Over (Start overlay ist weg) -->
         <div id="overlay">
-            <h1 id="overlayTitle">Disco Runner</h1>
-            <p id="overlayMessage">Drücke LEERTASTE oder Pfeil-Hoch zum Springen.</p>
+            <h1 id="overlayTitle">GAME OVER!</h1>
+            <p id="overlayMessage">Du hast Punkte erreicht! Highscore: Punkte. Drücke LEERTASTE oder klicke auf Neustart.</p>
             
             <div id="options">
                 <button id="toggleSound">Ton: AN</button>
@@ -30,8 +30,9 @@
                 <button id="skin4" class="skin-btn" data-color="#FF1493" data-score="200" disabled>Pink (200P)</button>
                 <button id="skin5" class="skin-btn" data-color="#FFFFFF" data-score="500" disabled>Weiß (500P)</button>
             </div>
-
-            <button id="startButton">Spiel Starten</button>
+            
+            <!-- Neuer Restart Button im Overlay -->
+            <button id="restartButton">Neustart</button>
         </div>
     </div>
     <script src="game.js"></script>
