@@ -16,17 +16,20 @@ const powerUps = [];
 const particles = [];
 let gameOverTimer = 0;
 let soundEnabled = true;
-let colorblindMode = false; // Initialzustand ist AUS
+let colorblindMode = false;
+
+// Audio Context initialisieren (aber pausiert halten bis zur ersten Nutzerinteraktion)
+const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
 // Farbpaletten
 const Palettes = {
     DISCO: {
-        playerHue: 0, // dynamisch
+        playerHue: 0, 
         sat: 80, light: 60, groundHue: 340, obstacleSat: 50, obstacleLight: 50
     },
     COLORBLIND: {
-        playerHue: 200, // Blau/Cyan (gut sichtbar)
-        sat: 100, light: 50, groundHue: 40, obstacleSat: 100, obstacleLight: 50 // Orange/Gelb (Kontrast)
+        playerHue: 200, 
+        sat: 100, light: 50, groundHue: 40, obstacleSat: 100, obstacleLight: 50 
     }
 };
 let currentPalette = Palettes.DISCO;
@@ -47,32 +50,32 @@ const player = {
 
 // --- Sound Logik ---
 function playSound(type) {
-    if (!soundEnabled) return;
-    try {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-
-        switch (type) {
-            case 'jump':
-                oscillator.type = 'sine'; oscillator.frequency.setValueAtTime(400, audioContext.currentTime); gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-                break;
-            case 'powerup':
-                oscillator.type = 'triangle'; oscillator.frequency.setValueAtTime(800, audioContext.currentTime); gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
-                break;
-            case 'gameover':
-                oscillator.type = 'sawtooth'; oscillator.frequency.setValueAtTime(150, audioContext.currentTime); gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-                break;
-        }
-        oscillator.start(audioContext.currentTime);
-        gainNode.gain.expirestime = audioContext.currentTime + 0.2;
-        gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.2);
-        oscillator.stop(audioContext.currentTime + 0.2);
-    } catch (e) {
-        console.warn("Web Audio API not supported in this browser");
+    // Stellt sicher, dass Audio Context gestartet wird (nach Nutzerinteraktion)
+    if (audioContext.state === 'suspended') {
+        audioContext.resume();
     }
+    if (!soundEnabled) return;
+    
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    switch (type) {
+        case 'jump':
+            oscillator.type = 'sine'; oscillator.frequency.setValueAtTime(400, audioContext.currentTime); gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            break;
+        case 'powerup':
+            oscillator.type = 'triangle'; oscillator.frequency.setValueAtTime(800, audioContext.currentTime); gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+            break;
+        case 'gameover':
+            oscillator.type = 'sawtooth'; oscillator.frequency.setValueAtTime(150, audioContext.currentTime); gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+            break;
+    }
+    oscillator.start(audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.2);
+    oscillator.stop(audioContext.currentTime + 0.2);
 }
 
 // --- Toggle Logik ---
@@ -112,6 +115,9 @@ function selectSkin(color, button) {
 
 startButton.addEventListener('click', startGame);
 document.addEventListener('keydown', function(event) {
+    // Startet Audio Context bei erster Tasteneingabe
+    if (audioContext.state === 'suspended') audioContext.resume();
+
     if (gameState === 'PLAYING') {
         if ((event.code === 'Space' || event.code === 'ArrowUp') && player.grounded) {
             player.velocityY = player.jumpStrength;
@@ -126,6 +132,9 @@ document.addEventListener('keydown', function(event) {
 });
 
 function startGame() {
+    // Stellt sicher, dass Audio Context gestartet wird (nach Nutzerinteraktion)
+    if (audioContext.state === 'suspended') audioContext.resume();
+
     gameState = 'PLAYING';
     overlay.style.display = 'none';
     score = 0;
@@ -207,7 +216,6 @@ function update() {
     }
     if (gameState !== 'PLAYING' && gameOverTimer <= 0) return;
 
-    // Nur im Disco Mode die Farbe rotieren lassen
     if(!colorblindMode) hue = (hue + 0.5) % 360;
 
     if (frameCount % 300 === 0 && gameState === 'PLAYING') {
@@ -218,6 +226,7 @@ function update() {
     // Spieler Logik
     player.velocityY += 0.5;
     player.y += player.velocityY;
+    // Kollision mit dem Boden des Canvas
     if (player.y > canvas.height - player.height) {
         player.y = canvas.height - player.height;
         player.velocityY = 0;
@@ -230,11 +239,11 @@ function update() {
         }
     }
 
-    // Hindernisse spawnen (Spawn-Rate Flugobjekte gesenkt: war 0.2, jetzt 0.15)
+    // Hindernisse spawnen (Koordinaten relativ zur Canvas-Höhe)
     if (gameState === 'PLAYING' && frameCount % Math.floor(Math.random() * 90 + 70) === 0) {
-        if(Math.random() < 0.85) { // 85% Boden-Gegner
+        if(Math.random() < 0.85) { 
             obstacles.push(new Obstacle(canvas.width, canvas.height - 40, 20, 40, getHSLColor(currentPalette.groundHue, currentPalette.obstacleSat, currentPalette.obstacleLight), 'ground'));
-        } else { // 15% Flug-Gegner
+        } else {
              obstacles.push(new Obstacle(canvas.width, canvas.height - 100, 40, 20, getHSLColor(currentPalette.groundHue + 60, currentPalette.obstacleSat, currentPalette.obstacleLight), 'air'));
         }
         if (Math.random() < 0.1) {
@@ -306,6 +315,7 @@ function render() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.shadowBlur = 0;
 
+    // Bodenlinie (Koordinaten relativ zur Canvas-Höhe)
     ctx.strokeStyle = getHSLColor(currentPalette.groundHue, currentPalette.sat, currentPalette.lightness);
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -313,6 +323,7 @@ function render() {
     ctx.lineTo(canvas.width, canvas.height);
     ctx.stroke();
 
+    // Spieler zeichnen (STRICHMÄNNCHEN) - Koordinaten relativ zum player.y, was korrekt ist
     if(gameOverTimer < 110 || gameState === 'PLAYING' || gameState === 'START') {
         ctx.strokeStyle = player.color;
         ctx.lineWidth = 3;
@@ -339,8 +350,11 @@ function render() {
         ctx.stroke();
     }
 
+    // Hindernisse zeichnen
     for (let i = 0; i < obstacles.length; i++) { obstacles[i].draw(); }
+    // Power-Ups zeichnen
     for (let i = 0; i < powerUps.length; i++) { powerUps[i].draw(); }
+    // Partikel zeichnen
     for (let i = 0; i < particles.length; i++) { particles[i].draw(); }
 
     if (gameState === 'GAME_OVER' && gameOverTimer > 0) {
@@ -362,10 +376,8 @@ function render() {
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    // Spielerposition an den neuen Boden anpassen
     player.y = canvas.height - player.height;
-    // Overlay ebenfalls auf volle Größe bringen (CSS macht das schon, aber hier sicherheitshalber)
-    // overlay.style.width = window.innerWidth + 'px';
-    // overlay.style.height = window.innerHeight + 'px';
 }
 
 window.addEventListener('resize', resizeCanvas);
@@ -379,6 +391,6 @@ function gameLoop() {
 }
 
 // Spiel starten (Initialisierung)
-resizeCanvas();
+resizeCanvas(); // Einmalige Anpassung beim Start
 checkSkins();
 gameLoop();
