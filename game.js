@@ -3,6 +3,8 @@ const ctx = canvas.getContext('2d');
 const scoreElement = document.getElementById('score');
 const overlay = document.getElementById('overlay');
 const startButton = document.getElementById('startButton');
+const toggleSoundBtn = document.getElementById('toggleSound');
+const toggleColorblindBtn = document.getElementById('toggleColorblind');
 
 let gameState = 'START';
 let score = 0;
@@ -13,17 +15,27 @@ const obstacles = [];
 const powerUps = [];
 const particles = [];
 let gameOverTimer = 0;
+let soundEnabled = true;
+let colorblindMode = false;
 
-// Disco Farblogik
-let hue = 0;
-const saturation = 80;
-const lightness = 60;
-const groundHue = 340;
+// Farbpaletten
+const Palettes = {
+    DISCO: {
+        playerHue: 0, // dynamisch
+        sat: 80, light: 60, groundHue: 340, obstacleSat: 50, obstacleLight: 50
+    },
+    COLORBLIND: {
+        playerHue: 200, // Blau/Cyan (gut sichtbar)
+        sat: 100, light: 50, groundHue: 40, obstacleSat: 100, obstacleLight: 50 // Orange/Gelb (Kontrast)
+    }
+};
+let currentPalette = Palettes.DISCO;
+let hue = currentPalette.playerHue;
 
 // Spielerobjekt & Skin-Logik
 const player = {
     x: 50,
-    y: canvas.height - 50,
+    y: 0, // Y wird in resizeCanvas gesetzt
     width: 20,
     height: 50,
     color: '#53d8fb',
@@ -33,7 +45,59 @@ const player = {
     powerUpTimer: 0
 };
 
-// Skin Auswahl Event Listener
+// --- Sound Logik ---
+function playSound(type) {
+    if (!soundEnabled) return;
+    try {
+        // Einfache Frequenz-Töne (Piepen) statt Audio-Dateien für Einfachheit
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        switch (type) {
+            case 'jump':
+                oscillator.type = 'sine'; oscillator.frequency.setValueAtTime(400, audioContext.currentTime); gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                break;
+            case 'powerup':
+                oscillator.type = 'triangle'; oscillator.frequency.setValueAtTime(800, audioContext.currentTime); gainNode.gain.setValueAtTime(0.4, audioContext.currentTime);
+                break;
+            case 'gameover':
+                oscillator.type = 'sawtooth'; oscillator.frequency.setValueAtTime(150, audioContext.currentTime); gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+                break;
+        }
+
+        oscillator.start(audioContext.currentTime);
+        gainNode.gain.expirestime = audioContext.currentTime + 0.2;
+        gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.2);
+        oscillator.stop(audioContext.currentTime + 0.2);
+
+    } catch (e) {
+        console.warn("Web Audio API not supported in this browser");
+    }
+}
+
+// --- Toggle Logik ---
+toggleSoundBtn.addEventListener('click', () => {
+    soundEnabled = !soundEnabled;
+    toggleSoundBtn.textContent = `Ton: ${soundEnabled ? 'AN' : 'AUS'}`;
+});
+
+toggleColorblindBtn.addEventListener('click', () => {
+    colorblindMode = !colorblindMode;
+    toggleColorblindBtn.textContent = `Farbblinden-Modus: ${colorblindMode ? 'AN' : 'AUS'}`;
+    currentPalette = colorblindMode ? Palettes.COLORBLIND : Palettes.DISCO;
+    checkSkins(); // Skins müssen ggf. neue Farben haben, falls sie auf HSL basieren
+    // Standard-Skin Farbe aktualisieren, da sie nicht über data-color definiert ist
+    document.getElementById('skin0').setAttribute('data-color', colorblindMode ? '#5da1b9' : '#53d8fb');
+    // Aktuellen Skin neu auswählen, um Farbe zu übernehmen
+    document.querySelector('.skin-btn.active').click();
+});
+
+
+// Skin Auswahl Event Listener (wie zuvor)
 document.querySelectorAll('.skin-btn').forEach(button => {
     button.addEventListener('click', () => {
         if (!button.disabled) {
@@ -48,15 +112,14 @@ function selectSkin(color, button) {
     button.classList.add('active');
 }
 
-// ... (Restliche Event Listener, startGame, getHSLColor, Klassen Obstacle, PowerUp, Particle, checkCollision, createParticles, gameOverAction Logik wie zuvor) ...
 
 startButton.addEventListener('click', startGame);
-
 document.addEventListener('keydown', function(event) {
     if (gameState === 'PLAYING') {
         if ((event.code === 'Space' || event.code === 'ArrowUp') && player.grounded) {
             player.velocityY = player.jumpStrength;
             player.grounded = false;
+            playSound('jump'); // Sound beim Sprung
         }
     } else if (gameState === 'GAME_OVER' && gameOverTimer <= 0) {
         if (event.code === 'Space') {
@@ -73,7 +136,7 @@ function startGame() {
     obstacles.length = 0;
     powerUps.length = 0;
     particles.length = 0;
-    player.y = canvas.height - player.height;
+    // player.y wird in resizeCanvas gesetzt, was beim Start einmalig aufgerufen wird
     currentObstacleSpeed = 5;
     frameCount = 0;
     player.powerUpTimer = 0;
@@ -98,9 +161,8 @@ function getHSLColor(h, s, l) {
     return `hsl(${h}, ${s}%, ${l}%)`;
 }
 
-// Hier die Klassen Obstacle, PowerUp und Particle aus der vorherigen Antwort einfügen.
-// Wichtig: Die update() Methoden in diesen Klassen müssen currentObstacleSpeed nutzen!
-// ... (Klassen hier einfügen) ...
+// ... (Klassen Obstacle, PowerUp, Particle wie zuvor, update() methoden nutzen currentObstacleSpeed) ...
+
 function Obstacle(x, y, width, height, color, type = 'ground') {
     this.x = x; this.y = y; this.width = width; this.height = height; this.color = color; this.type = type;
     this.update = function() { this.x -= currentObstacleSpeed; };
@@ -139,7 +201,6 @@ function Particle(x, y, color, velocityX, velocityY) {
         ctx.globalAlpha = 1;
     };
 }
-// ... (Ende Klassen) ...
 
 
 // Update-Funktion (Spiel-Logik)
@@ -150,8 +211,8 @@ function update() {
     }
     if (gameState !== 'PLAYING' && gameOverTimer <= 0) return;
 
-    hue = (hue + 0.5) % 360;
-    // Spielerfarbe wird nun durch das skin selection system gesetzt, nicht dynamisch
+    // Nur im Disco Mode die Farbe rotieren lassen
+    if(!colorblindMode) hue = (hue + 0.5) % 360;
 
     if (frameCount % 300 === 0 && gameState === 'PLAYING') {
         currentObstacleSpeed += 0.3;
@@ -173,19 +234,19 @@ function update() {
         }
     }
 
-    // Hindernisse spawnen (nur im Playing State)
+    // Hindernisse spawnen (Spawn-Rate Flugobjekte gesenkt: war 0.2, jetzt 0.15)
     if (gameState === 'PLAYING' && frameCount % Math.floor(Math.random() * 90 + 70) === 0) {
-        if(Math.random() < 0.8) {
-            obstacles.push(new Obstacle(canvas.width, canvas.height - 40, 20, 40, getHSLColor(groundHue, saturation, 50), 'ground'));
-        } else {
-             obstacles.push(new Obstacle(canvas.width, canvas.height - 100, 40, 20, getHSLColor(groundHue + 60, saturation, 50), 'air'));
+        if(Math.random() < 0.85) { // 85% Boden-Gegner
+            obstacles.push(new Obstacle(canvas.width, canvas.height - 40, 20, 40, getHSLColor(currentPalette.groundHue, currentPalette.obstacleSat, currentPalette.obstacleLight), 'ground'));
+        } else { // 15% Flug-Gegner
+             obstacles.push(new Obstacle(canvas.width, canvas.height - 100, 40, 20, getHSLColor(currentPalette.groundHue + 60, currentPalette.obstacleSat, currentPalette.obstacleLight), 'air'));
         }
         if (Math.random() < 0.1) {
              powerUps.push(new PowerUp(canvas.width + 100, canvas.height - 60, 20, getHSLColor(120, saturation, 50), 'highJump'));
         }
     }
 
-    // Hindernisse bewegen und Kollision prüfen
+    // ... (Kollisionslogik wie zuvor) ...
     for (let i = 0; i < obstacles.length; i++) {
         obstacles[i].update();
         if (gameState === 'PLAYING' && checkCollision(player, obstacles[i])) {
@@ -196,13 +257,13 @@ function update() {
             if(gameState === 'PLAYING') { score++; scoreElement.textContent = score; }
         }
     }
-    // Power-Ups bewegen und Kollision prüfen
     for (let i = 0; i < powerUps.length; i++) {
         powerUps[i].update();
         if (gameState === 'PLAYING' && checkCollision(player, powerUps[i])) {
             if (powerUps[i].type === 'highJump') {
                 player.jumpStrength = -18; player.powerUpTimer = 180;
                 createParticles(player.x + player.width / 2, player.y + player.height / 2, powerUps[i].color, 20);
+                playSound('powerup'); // Sound beim Einsammeln
             }
             powerUps.splice(i, 1); i--;
         }
@@ -210,14 +271,13 @@ function update() {
             powerUps.splice(i, 1); i--;
         }
     }
-    // Partikel aktualisieren
     for (let i = 0; i < particles.length; i++) {
         particles[i].update();
         if (particles[i].life <= 0) { particles.splice(i, 1); i--; }
     }
 }
 
-// ... (checkCollision, createParticles bleiben gleich) ...
+// ... (checkCollision, createParticles) ...
 function checkCollision(rect1, rect2) {
     return ( rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y );
 }
@@ -227,8 +287,10 @@ function createParticles(x, y, color, count) {
     }
 }
 
+
 function gameOverAction() {
     if(gameState === 'GAME_OVER') return;
+
     if (score > highScore) {
         highScore = score;
         localStorage.setItem('discoRunnerHighScore', highScore);
@@ -237,26 +299,29 @@ function gameOverAction() {
     gameState = 'GAME_OVER';
     gameOverTimer = 120;
     createParticles(player.x + player.width / 2, player.y + player.height / 2, player.color, 100);
+    playSound('gameover'); // Sound bei Game Over
 }
 
 
 // Render-Funktion (Zeichnen)
 function render() {
+    // Disco Hintergrund
     const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-    gradient.addColorStop(0, getHSLColor(hue, 50, 15));
-    gradient.addColorStop(1, getHSLColor(hue + 60, 50, 10));
+    gradient.addColorStop(0, getHSLColor(hue, currentPalette.sat, currentPalette.lightness * 0.25));
+    gradient.addColorStop(1, getHSLColor(hue + 60, currentPalette.sat, currentPalette.lightness * 0.2));
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.shadowBlur = 0;
 
-    ctx.strokeStyle = getHSLColor(groundHue, saturation, 50);
+    // Bodenlinie
+    ctx.strokeStyle = getHSLColor(currentPalette.groundHue, currentPalette.sat, currentPalette.lightness);
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(0, canvas.height);
     ctx.lineTo(canvas.width, canvas.height);
     ctx.stroke();
 
-    // Spieler zeichnen
+    // Spieler zeichnen (STRICHMÄNNCHEN)
     if(gameOverTimer < 110 || gameState === 'PLAYING' || gameState === 'START') {
         ctx.strokeStyle = player.color;
         ctx.lineWidth = 3;
@@ -293,8 +358,8 @@ function render() {
     // Dramatischer Text während Bullet Time
     if (gameState === 'GAME_OVER' && gameOverTimer > 0) {
         ctx.shadowBlur = 20;
-        ctx.shadowColor = getHSLColor(groundHue, saturation, 50);
-        ctx.fillStyle = getHSLColor(groundHue, saturation, 50);
+        ctx.shadowColor = getHSLColor(currentPalette.groundHue, currentPalette.sat, currentPalette.lightness);
+        ctx.fillStyle = getHSLColor(currentPalette.groundHue, currentPalette.sat, currentPalette.lightness);
         ctx.font = 'bold 48px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText('K.O.!', canvas.width / 2, canvas.height / 2);
@@ -307,6 +372,20 @@ function render() {
     }
 }
 
+// --- Vollbild-Logik ---
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    // Spielerposition anpassen
+    player.y = canvas.height - player.height;
+    // Overlay ebenfalls auf volle Größe bringen
+    overlay.style.width = window.innerWidth + 'px';
+    overlay.style.height = window.innerHeight + 'px';
+}
+
+window.addEventListener('resize', resizeCanvas);
+
+
 // Haupt-Spiel-Loop
 function gameLoop() {
     update();
@@ -315,5 +394,6 @@ function gameLoop() {
 }
 
 // Spiel starten (Initialisierung)
+resizeCanvas(); // Einmalige Anpassung beim Start
 checkSkins();
 gameLoop();
